@@ -1,0 +1,15 @@
+[Unit]
+Description=Konspeta (Ad Studio)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/konspeta/server
+EnvironmentFile=/opt/konspeta/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node src/index.js
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

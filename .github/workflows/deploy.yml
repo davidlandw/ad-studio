@@ -1,0 +1,26 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_DEPLOY_KEY }}
+          script: |
+            set -e
+            cd /opt/konspeta
+            git fetch origin main
+            git reset --hard origin/main
+            npm run install:all
+            npm run build
+            systemctl restart konspeta
+            systemctl --no-pager status konspeta | head -5
