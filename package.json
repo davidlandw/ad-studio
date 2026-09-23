@@ -1,0 +1,16 @@
+{
+  "name": "ad-studio",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Ad Studio — agency-style ad creation pipeline (Node.js + Vue 3 + SQLite + Gemini)",
+  "scripts": {
+    "install:all": "npm --prefix server ci --ignore-scripts && npm --prefix web ci",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix server start",
+    "dev:server": "GEMINI_MOCK=${GEMINI_MOCK:-0} npm --prefix server start",
+    "dev:web": "npm --prefix web run dev",
+    "test": "npm --prefix server test",
+    "e2e": "npm run build && python3 e2e/run_e2e.py"
+  },
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,70 @@
+:root {
+  --ink: #23272e;        /* slate — text, top bar */
+  --paper: #f5f6f7;      /* cool proof paper — panels */
+  --board: #d9dce0;      /* neutral grey — where images are judged */
+  --line: #c3c7cd;
+  --muted: #5d6470;
+  --magenta: #c8177e;    /* proofing magenta — primary action */
+  --cyan: #0b7fa3;       /* secondary / links */
+  --ok: #1f8a4c;         /* approval stamp */
+  --danger: #b3261e;
+  --display: "Suez One", Georgia, serif;
+  --body: "Assistant", "Segoe UI", Arial, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font: 17px/1.5 var(--body); color: var(--ink); background: var(--board); }
+main { max-width: 1320px; margin: 0 auto; padding: 24px 20px 64px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 1.2; margin: 0 0 .5em; }
+h1 { font-size: 2rem; } h2 { font-size: 1.45rem; } h3 { font-size: 1.12rem; }
+p { margin: 0 0 .8em; max-width: 72ch; }
+a { color: var(--cyan); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+.topbar { display: flex; align-items: center; gap: 18px; padding: 10px 20px; background: var(--ink); color: #fff; flex-wrap: wrap; }
+.topbar a { color: #dfe3e8; text-decoration: none; }
+.topbar a.router-link-exact-active { color: #fff; border-bottom: 2px solid var(--magenta); }
+.topbar nav { display: flex; gap: 16px; }
+.topbar .me { margin-inline-start: auto; color: #b8bfc8; }
+.brand { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 1.2rem; color: #fff !important; }
+.org-switch select { background: #353b44; color: #fff; border-color: #4a515c; }
+
+button, .btn { font: 600 16px var(--body); border: 1px solid var(--ink); background: var(--ink); color: #fff; padding: 8px 16px; border-radius: 3px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+button.primary { background: var(--magenta); border-color: var(--magenta); }
+button.ghost { background: transparent; color: inherit; border-color: currentColor; }
+button.link { background: none; border: 0; color: var(--cyan); padding: 0; }
+button.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.busy { cursor: progress; }
+
+input, textarea, select { font: 16px var(--body); padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); width: 100%; }
+textarea { min-height: 72px; resize: vertical; }
+label.field { display: block; margin-bottom: 14px; }
+label.field > span { display: block; font-weight: 600; margin-bottom: 4px; }
+label.field small { color: var(--muted); font-weight: 400; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 20px; }
+.panel { background: var(--paper); border: 1px solid var(--line); padding: 20px; margin-bottom: 20px; }
+.muted { color: var(--muted); }
+.error-text { color: var(--danger); }
+
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+
+.toast { position: fixed; bottom: 20px; inset-inline-start: 50%; transform: translateX(50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 3px; z-index: 50; max-width: 90vw; }
+.toast.error { background: var(--danger); }
+
+/* approval stamp — the one loud element */
+.stamp { font-family: var(--display); color: var(--ok); border: 3px solid var(--ok); padding: 2px 10px; transform: rotate(-6deg); display: inline-block; letter-spacing: .02em; background: rgba(255,255,255,.85); }
+
+/* crop marks around the ad canvas */
+.proof { position: relative; padding: 18px; display: inline-block; }
+.proof::before, .proof::after, .proof > .cm::before, .proof > .cm::after { content: ""; position: absolute; width: 14px; height: 14px; border-color: var(--ink); border-style: solid; }
+.proof::before { top: 0; right: 0; border-width: 0 0 1px 1px; }
+.proof::after { top: 0; left: 0; border-width: 0 1px 1px 0; }
+.proof > .cm::before { bottom: 0; right: 0; border-width: 1px 0 0 1px; }
+.proof > .cm::after { bottom: 0; left: 0; border-width: 1px 1px 0 0; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
