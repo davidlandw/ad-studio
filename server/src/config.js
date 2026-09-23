@@ -21,7 +21,7 @@ module.exports = {
   appUrl: (process.env.APP_URL || `http://localhost:${Number(process.env.PORT || 3000)}`).replace(/\/$/, ""),
   // Mail: SMTP_URL like smtp://user:pass@smtp.example.com:587 ; without it mails go to DATA_DIR/outbox (dev/test only).
   smtpUrl: process.env.SMTP_URL || "",
-  mailFrom: process.env.MAIL_FROM || "Ad Studio <no-reply@localhost>",
+  mailFrom: process.env.MAIL_FROM || "קונספטה <no-reply@localhost>",
   mailTransport: process.env.MAIL_TRANSPORT || (process.env.SMTP_URL ? "smtp" : "outbox"),
   resetTokenMinutes: 60,
   inviteDays: 7,

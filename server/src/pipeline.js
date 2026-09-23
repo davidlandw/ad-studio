@@ -66,6 +66,26 @@ Return JSON:
   return pick(out, ["summary", "positioning", "audience_insight", "tone_direction", "goal_strategy", "risks", "recommendations"]);
 }
 
+// ---------- Step 2: suggestions for the mandatory fields (creative fields only — never invents facts) ----------
+async function suggestMandatory({ apiKey, brief, analysis }) {
+  const prompt = `Based on the brief and the analysis, suggest values for two of the ad's mandatory fields.
+Only suggest fields that are creative choices. Never invent business facts (phone, address, price, offers) — those are not part of this request.
+BRIEF:\n${fmt(brief, BRIEF_FIELDS)}
+ANALYSIS: ${JSON.stringify(analysis)}
+
+Return JSON: {"centerProduct": string, "slogan": string}
+centerProduct: short precise Hebrew phrase (up to 6 words) naming the specific product/service that should be the visual center of the ad, grounded in the brief's offering — not generic.
+slogan: one short punchy Hebrew slogan (up to 8 words) that matches the tone and positioning from the analysis.`;
+  const out = await generateJSON({
+    apiKey, system: SYSTEM, prompt,
+    mock: {
+      centerProduct: brief.offering ? brief.offering.split(" ").slice(0, 5).join(" ") : "המוצר המרכזי",
+      slogan: `${brief.businessName || "המותג"} — ${brief.differentiators || "האיכות שאתם מחפשים"}`,
+    },
+  });
+  return { centerProduct: String(out.centerProduct || "").slice(0, 200), slogan: String(out.slogan || "").slice(0, 200) };
+}
+
 // ---------- Step 3: ten concepts ----------
 async function concepts({ apiKey, brief, mandatory, analysis }) {
   const prompt = `Based on the brief, the mandatory items and the analysis, propose 10 ORIGINAL ad concepts.
@@ -277,6 +297,6 @@ const arr = (a) => (Array.isArray(a) ? a : []);
 function pick(o, keys) { const r = {}; for (const k of keys) r[k] = o?.[k] ?? (k === "risks" || k === "recommendations" ? [] : ""); return r; }
 
 module.exports = {
-  analyze, concepts, plan, critique, elementPrompt, refinePrompt, fusionPrompt, buildTextLayers,
+  analyze, suggestMandatory, concepts, plan, critique, elementPrompt, refinePrompt, fusionPrompt, buildTextLayers,
   normalizePlan, BRIEF_FIELDS, MANDATORY_FIELDS, ASPECTS, TEXT_ROLES,
 };

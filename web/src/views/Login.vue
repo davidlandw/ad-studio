@@ -23,7 +23,10 @@ async function submit() {
   <section class="login">
     <div class="proof"><span class="cm"></span>
       <form class="panel" @submit.prevent="submit">
-        <h1>סטודיו מודעות</h1>
+        <h1 class="logo-lockup">
+          <svg viewBox="0 0 100 100" width="34" height="34" aria-hidden="true"><rect width="100" height="100" rx="24" fill="var(--magenta)"/><path d="M50 25Q56 44 75 50Q56 56 50 75Q44 56 25 50Q44 44 50 25Z" fill="#fff"/></svg>
+          קונספטה
+        </h1>
         <p class="muted">מבריף ועד מודעה מוכנה: ניתוח, קונספטים, קומפוזיציה, ביקורת, ואז כל אלמנט נוצר ומאושר בנפרד לפני שמחברים.</p>
         <label v-if="mode === 'register'" class="field"><span>שם</span><input v-model="form.name" required autocomplete="name" data-test="name" /></label>
         <label class="field"><span>אימייל</span><input v-model="form.email" type="email" required autocomplete="email" dir="ltr" data-test="email" /></label>
@@ -45,4 +48,5 @@ async function submit() {
 .login { display: grid; place-items: center; min-height: 80vh; }
 form { width: min(420px, 90vw); margin: 0; }
 .forgot { font-size: 15px; }
+.logo-lockup { display: flex; align-items: center; gap: 10px; }
 </style>

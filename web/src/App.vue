@@ -18,8 +18,8 @@ function switchOrg(e) {
 <template>
   <header v-if="store.me" class="topbar">
     <router-link to="/" class="brand" aria-label="דף הבית">
-      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M4 10V4h6M22 4h6v6M28 22v6h-6M10 28H4v-6" stroke="currentColor" stroke-width="3" fill="none"/><circle cx="16" cy="16" r="5" fill="var(--magenta)"/></svg>
-      סטודיו מודעות
+      <svg viewBox="0 0 100 100" width="26" height="26" aria-hidden="true"><rect width="100" height="100" rx="24" fill="var(--magenta)"/><path d="M50 25Q56 44 75 50Q56 56 50 75Q44 56 25 50Q44 44 50 25Z" fill="#fff"/></svg>
+      קונספטה
     </router-link>
     <label class="org-switch">
       <span class="sr">ארגון</span>

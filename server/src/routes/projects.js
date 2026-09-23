@@ -145,6 +145,16 @@ module.exports = (db) => {
     send(res, p.id);
   }));
 
+  // ---------- Step 2: suggestions for the mandatory fields, based on the analysis ----------
+  r.post("/projects/:id/suggest-mandatory", wrap(async (req, res) => {
+    const p = project(req);
+    if (!p.analysis_json) throw bad("יש להשלים את ניתוח העסק קודם");
+    const apiKey = userKey(req);
+    const suggestion = await metered(db, req, res, p.org_id, "text", () =>
+      P.suggestMandatory({ apiKey, brief: J(p.brief_json, {}), analysis: J(p.analysis_json) }));
+    res.json(suggestion);
+  }));
+
   // ---------- Step 3: concepts ----------
   r.post("/projects/:id/concepts", wrap(async (req, res) => {
     const p = project(req);

@@ -67,7 +67,7 @@ module.exports = (db) => {
         .run(orgId, email, role, sha256(token), req.user.id, expires);
     })();
     await mailer.send({
-      to: email, subject: `הזמנה להצטרף ל-${org.name} — סטודיו מודעות`, title: "הוזמנת לעבוד יחד",
+      to: email, subject: `הזמנה להצטרף ל-${org.name} — קונספטה`, title: "הוזמנת לעבוד יחד",
       paragraphs: [`${req.user.name} הזמין/ה אותך להצטרף לארגון "${org.name}" בתפקיד ${ROLE_HE[role]}.`,
         `ההזמנה תקפה ל-${config.inviteDays} ימים. אם אין לך עדיין חשבון, אפשר להירשם מהקישור עם הכתובת הזו.`],
       action: { label: "צפייה בהזמנה", url: `${config.appUrl}/invite/${token}` },

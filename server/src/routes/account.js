@@ -62,7 +62,7 @@ module.exports = (db) => {
           db.prepare("INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?,?,?)").run(sha256(token), u.id, expires);
         })();
         mailer.sendQuiet({
-          to: u.email, subject: "איפוס סיסמה — סטודיו מודעות", title: `שלום ${u.name},`,
+          to: u.email, subject: "איפוס סיסמה — קונספטה", title: `שלום ${u.name},`,
           paragraphs: ["קיבלנו בקשה לאפס את הסיסמה לחשבון שלך.", `הקישור תקף ל-${config.resetTokenMinutes} דקות ולשימוש אחד.`, "אם לא ביקשת איפוס, אפשר להתעלם מההודעה — הסיסמה לא תשתנה."],
           action: { label: "בחירת סיסמה חדשה", url: `${config.appUrl}/reset/${token}` },
         });

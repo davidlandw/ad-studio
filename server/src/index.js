@@ -12,6 +12,6 @@ const db = require("./db").open();
 const { createApp } = require("./app");
 
 createApp(db).listen(config.port, () => {
-  console.log(`Ad Studio listening on http://localhost:${config.port}` +
+  console.log(`קונספטה listening on http://localhost:${config.port}` +
     `${config.geminiMock ? "  [GEMINI_MOCK]" : ""}  [mail: ${config.mailTransport}]`);
 });
