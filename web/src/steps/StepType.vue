@@ -32,8 +32,10 @@ const fontOptions = computed(() => [
 
 async function syncTextsFromMandatory(keepStyle) {
   const fresh = await api.get(`/projects/${project.value.id}/text-layers`);
-  const old = Object.fromEntries(texts.value.map((t) => [t.role, t]));
-  texts.value = fresh.map((t) => (keepStyle && old[t.role] ? { ...old[t.role], text: t.text } : t));
+  // Keyed by id, not role: mandatory.lines can have several entries with the same role (e.g. three "bullet"
+  // lines), and role is not unique the way id ("line0", "line1", …) is.
+  const old = Object.fromEntries(texts.value.map((t) => [t.id, t]));
+  texts.value = fresh.map((t) => (keepStyle && old[t.id] ? { ...old[t.id], text: t.text } : t));
 }
 
 onMounted(async () => {

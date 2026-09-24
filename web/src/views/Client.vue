@@ -25,7 +25,8 @@ const referenceAds = computed(() => client.value?.documents.filter((d) => d.role
 const conceptDocs = computed(() => client.value?.documents.filter((d) => d.role === "concept_md") || []);
 
 async function saveBrief() {
-  try { client.value = await api.patch(`/clients/${props.id}`, { brief: brief.value }); toast("הבריף נשמר"); }
+  // PATCH only returns the client's own fields, not products/campaigns/documents — merge, don't replace.
+  try { client.value = { ...client.value, ...(await api.patch(`/clients/${props.id}`, { brief: brief.value })) }; toast("הבריף נשמר"); }
   catch (e) { toast(e.message, "error"); }
 }
 async function rename(e) {
