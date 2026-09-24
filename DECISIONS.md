@@ -109,7 +109,14 @@
 **D17. שני מודלים שניתן להגדיר.**
 - `GEMINI_TEXT_MODEL=gemini-2.5-flash` לשלבי הטקסט, עם `responseMimeType: application/json`.
 - `GEMINI_IMAGE_MODEL=gemini-2.5-flash-image` לתמונות, עם `responseModalities: ["IMAGE"]` ו-`imageConfig.aspectRatio`.
-- **לא אומת מול ה-API האמיתי**: סביבת הבנייה חסומה ל-`generativelanguage.googleapis.com`. שמות המודלים ומבנה הבקשה נכתבו לפי התיעוד המוכר לי, ויש לאמת אותם בהרצה ראשונה.
+- **אומת מול ה-API האמיתי (2026-09-24) — עבר בלי שום שינוי קוד.** הרצה מלאה, בלי `GEMINI_MOCK`, עם מפתח Gemini אמיתי שהוזן דרך `PUT /api/me/gemini-key` (עבר את `verifyKey` האמיתי מול `GET /v1beta/models`, 200), ואז מודעה שלמה מקצה לקצה דרך ה-API האמיתי:
+  - `models/gemini-2.5-flash` ו-`models/gemini-2.5-flash-image` **שניהם קיימים בדיוק בשם הזה** ב-`GET /v1beta/models` של החשבון שנבדק.
+  - שלב 1 (`POST /projects/:id/analyze`) — קריאת טקסט אמיתית: JSON תקין חזר בדיוק במבנה שה-pipeline מצפה לו (`summary`, `positioning`, `audience_insight`, `tone_direction`, `goal_strategy`, `risks[]`, `recommendations[]`), בלי צורך ב-fallback של `parseJson`.
+  - שלבים 3–5 (concepts/choose/critique) נבדקו גם הם באותה הרצה: 10 קונספטים, `plan` עם `elements[]` מנורמל, ו-`critique` עם `revised_plan` — כל המבנים תואמים ל-`pipeline.js` בלי שינוי.
+  - שלב 6 (`POST /elements/:eid/generate`) — קריאת תמונה אמיתית לכל 4 האלמנטים בתוכנית (רקע ב-4:5, שלושה אובייקטים ב-1:1): כל קריאה החזירה `image/png` אמיתי (magic bytes תקינים), לא `gemini_no_image`.
+  - שלב 7 (`POST /projects/:id/fuse`) נבדק גם הוא (מעבר לנדרש): קריאת תמונה עם 5 תמונות רפרנס (קולאז' + 4 אלמנטים מאושרים) הצליחה והחזירה `plate` תקין.
+  - **הבדל שהתגלה, לא תוקן כי הוא לא באג**: כש-`imageConfig.aspectRatio` מבוקש כ-`"4:5"` (0.8), גוגל בפועל מחזירה תמונה ביחס `7:9` (0.778, למשל 896×1152) ולא פיקסל-בפיקסל 1080×1350. זו התנהגות של המודל עצמו (אושרה גם בקריאת curl ישירה מחוץ לאפליקציה, לא ספציפית לקוד שלנו), וה-render הקיים כבר מטפל בזה נכון: `drawCover` ב-`render.js` (Math.max של יחסי W/H) ממלא את הפריים לפי כיסוי, לא לפי מידות מדויקות — כך שאין תיקון קוד נדרש.
+  - שמות המודלים, מבנה הבקשה (`systemInstruction`, `contents[].parts`, `generationConfig.responseMimeType`/`responseModalities`/`imageConfig.aspectRatio`), וההנחה ש-`inlineData.data`/`inlineData.mimeType` הם השדות בתשובה — כולם נכונים כפי שנכתבו ב-`gemini.js`. לא נדרש אף שינוי ב-`GEMINI_TEXT_MODEL`, ב-`GEMINI_IMAGE_MODEL`, או במבנה הבקשות.
 
 **D18. `GEMINI_MOCK=1` הוא מוק דטרמיניסטי ואופליין.**
 - הוא מחזיר JSON מובנה לכל שלב, ו-PNG אמיתי (encoder מינימלי ב-`png.js`) בגודל וביחס הנכונים.
