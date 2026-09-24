@@ -25,6 +25,11 @@ function createApp(db) {
   api.use(require("./routes/invitations")(db));
   api.use(require("./routes/orgs")(db));
   api.use(require("./routes/library")(db));
+  api.use(require("./routes/clients")(db));
+  api.use(require("./routes/products")(db));
+  api.use(require("./routes/campaigns")(db));
+  api.use(require("./routes/documents")(db));
+  api.use(require("./routes/references")(db));
   api.use(require("./routes/projects")(db));
   api.use((_req, _res, next) => next(new HttpError(404, "נתיב לא קיים", "not_found")));
   app.use("/api", api);

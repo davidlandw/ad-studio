@@ -40,12 +40,13 @@ function parseJson(text) {
   }
 }
 
-/** Text step → JSON object. `mock` is the canned answer used in mock mode. */
-async function generateJSON({ apiKey, system, prompt, mock }) {
+/** Text step → JSON object. `images` (optional) are reference inputs [{mime, base64}] for vision analysis. `mock` is the canned answer used in mock mode. */
+async function generateJSON({ apiKey, system, prompt, images = [], mock }) {
   if (config.geminiMock) return typeof mock === "function" ? mock() : mock;
+  const parts = [...images.map((i) => ({ inlineData: { mimeType: i.mime, data: i.base64 } })), { text: prompt }];
   const json = await call(apiKey, config.geminiTextModel, {
     systemInstruction: { parts: [{ text: system }] },
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    contents: [{ role: "user", parts }],
     generationConfig: { responseMimeType: "application/json", temperature: 0.9 },
   });
   return parseJson(extractText(json));

@@ -18,15 +18,17 @@ const STEPS = [
 ];
 
 // A step opens only when everything it depends on exists.
+// A "graphic" ad (typographic — panels + text, no photographed elements) can legitimately lock a plan with zero
+// elements: p.step >= 6 (set by lock-plan) is what tells us the plan was actually locked, not p.elements.length.
 const reachable = computed(() => {
   const p = project.value; if (!p) return 1;
   const m = p.mandatory || {};
   if (!p.analysis) return 1;
   if (!(m.centerProduct && m.businessName)) return 2;
   if (!p.plan) return 3;
-  if (!p.elements.length) return 5;
-  if (!p.elements.every((e) => e.status === "approved")) return 6;
-  if (!p.plateAssetId) return 7;
+  if (p.step < 6) return 5;
+  if (p.elements.length && !p.elements.every((e) => e.status === "approved")) return 6;
+  if (p.elements.length && !p.plateAssetId) return 7;
   return 8;
 });
 
@@ -60,12 +62,20 @@ async function rename(e) {
   const name = e.target.value.trim();
   if (name && name !== project.value.name) await run("", () => api.patch(`/projects/${props.id}`, { name }), "השם נשמר");
 }
+
+const DIRECTION_LABELS = { analyze: "ניתוח העסק", suggestMandatory: "הצעות לפרטי חובה", concepts: "קונספטים", plan: "קומפוזיציה", critique: "ביקורת" };
+const contextOpen = ref(false);
 </script>
 
 <template>
   <p v-if="error" class="panel error-text">{{ error }} <router-link to="/">חזרה לרשימה</router-link></p>
   <div v-else-if="project" class="layout">
     <aside>
+      <nav v-if="project.hierarchy.client" class="crumbs muted small" aria-label="היררכיה">
+        <router-link :to="`/clients/${project.clientId}`">{{ project.hierarchy.client }}</router-link>
+        <template v-if="project.hierarchy.campaign"> › <router-link :to="`/campaigns/${project.campaignId}`">{{ project.hierarchy.campaign }}</router-link></template>
+        <template v-if="project.hierarchy.product"> › {{ project.hierarchy.product }}</template>
+      </nav>
       <input class="title" :value="project.name" @change="rename" aria-label="שם המודעה" />
       <ol class="steps">
         <li v-for="s in STEPS" :key="s.n" :class="{ on: s.n === step, done: s.n < reachable, locked: s.n > reachable }">
@@ -73,7 +83,21 @@ async function rename(e) {
             <span class="num">{{ s.n }}</span>{{ s.title }}</button>
         </li>
       </ol>
-      <p class="muted small">{{ project.aspect }} · {{ project.size[0] }}×{{ project.size[1] }}</p>
+      <p class="muted small">{{ project.aspect }} · {{ project.size[0] }}×{{ project.size[1] }} · {{ project.adStyle === "graphic" ? "מודעה גרפית" : project.adStyle === "hybrid" ? "מודעה משולבת" : "מודעת צילום" }}</p>
+
+      <button type="button" class="link" @click="contextOpen = !contextOpen" data-test="toggle-context">{{ contextOpen ? "סגירת" : "מה ה-AI יודע" }}</button>
+      <div v-if="contextOpen" class="context panel" data-test="ai-context">
+        <p v-if="project.hierarchy.client"><strong>לקוח:</strong> {{ project.hierarchy.client }}</p>
+        <p v-if="project.hierarchy.campaign"><strong>קמפיין:</strong> {{ project.hierarchy.campaign }}</p>
+        <p v-if="project.hierarchy.product"><strong>מוצר:</strong> {{ project.hierarchy.product }}</p>
+        <template v-if="Object.keys(project.directions).length">
+          <p class="muted small" style="margin-top:8px">כיווני התערבות שנשמרו לאורך הדרך:</p>
+          <ul class="dirs">
+            <li v-for="(txt, key) in project.directions" :key="key"><strong>{{ DIRECTION_LABELS[key] || key }}:</strong> {{ txt }}</li>
+          </ul>
+        </template>
+        <p v-else class="muted small">עוד לא נכתב כיוון חופשי בשום שלב.</p>
+      </div>
     </aside>
     <section class="work">
       <div v-if="busy" class="busy" role="status" data-test="busy">{{ busy }}</div>
@@ -96,6 +120,12 @@ aside { position: sticky; top: 16px; }
 .steps .on button { font-weight: 700; }
 .steps .locked button { color: var(--muted); }
 .small { font-size: 14px; margin-top: 12px; }
+.crumbs { margin-bottom: 4px; display: block; }
+.crumbs a { color: inherit; }
+.context { margin-top: 10px; padding: 10px; font-size: 14px; }
+.context p { margin: 0 0 4px; }
+.dirs { margin: 4px 0 0; padding-inline-start: 18px; }
+.dirs li { margin-bottom: 4px; }
 .busy { position: sticky; top: 0; z-index: 10; background: var(--ink); color: #fff; padding: 8px 14px; margin-bottom: 12px; }
 .busy::after { content: ""; display: inline-block; width: 1.2em; animation: dots 1.2s steps(4) infinite; overflow: hidden; vertical-align: bottom; }
 @keyframes dots { from { width: 0; } to { width: 1.2em; } }

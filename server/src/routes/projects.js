@@ -10,6 +10,9 @@ const { decrypt } = require("../security");
 const { metered } = require("../quota");
 const { saveToLibrary } = require("./library");
 
+const AD_STYLES = ["photo", "graphic", "hybrid"];
+const LINE_ROLE_KEYS = Object.keys(P.LINE_ROLES);
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxImageBytes, files: 1 } });
 
 const J = (s, d = null) => { if (s == null) return d; try { return JSON.parse(s); } catch { return d; } };
@@ -25,6 +28,42 @@ module.exports = (db) => {
   }
   const project = (req) => loadProject(db, req.user.id, +req.params.id);
   const aspectOf = (p) => (P.ASPECTS[J(p.brief_json, {}).format] ? J(p.brief_json, {}).format : "4:5");
+  const adStyleOf = (p) => (AD_STYLES.includes(J(p.brief_json, {}).adStyle) ? J(p.brief_json, {}).adStyle : "photo");
+
+  /** The old "just make an ad" entry point (POST /orgs/:orgId/projects) files it under a per-org default
+   * client + campaign, created on first use, so it keeps working without forcing the hierarchy on quick use. */
+  function defaultCampaign(orgId, userId) {
+    let client = db.prepare("SELECT * FROM clients WHERE org_id = ? AND is_default = 1").get(orgId);
+    if (!client) {
+      const info = db.prepare("INSERT INTO clients (org_id, created_by, name, is_default, brief_json) VALUES (?,?,?,1,'{}')").run(orgId, userId, "לקוח כללי");
+      client = db.prepare("SELECT * FROM clients WHERE id = ?").get(info.lastInsertRowid);
+    }
+    let campaign = db.prepare("SELECT * FROM campaigns WHERE client_id = ? AND is_default = 1").get(client.id);
+    if (!campaign) {
+      const info = db.prepare("INSERT INTO campaigns (client_id, created_by, name, is_default, brief_json) VALUES (?,?,?,1,'{}')").run(client.id, userId, "קמפיין כללי");
+      campaign = db.prepare("SELECT * FROM campaigns WHERE id = ?").get(info.lastInsertRowid);
+    }
+    return campaign;
+  }
+
+  /** Full hierarchy context for a project, given to every AI call so it stays consistent (client -> product -> campaign -> ad). */
+  function loadHierarchy(p) {
+    const client = p.client_id ? db.prepare("SELECT * FROM clients WHERE id = ?").get(p.client_id) : null;
+    const campaign = p.campaign_id ? db.prepare("SELECT * FROM campaigns WHERE id = ?").get(p.campaign_id) : null;
+    const product = p.product_id ? db.prepare("SELECT * FROM products WHERE id = ?").get(p.product_id) : null;
+    const otherProducts = campaign
+      ? db.prepare(`SELECT pr.* FROM products pr JOIN campaign_products cp ON cp.product_id = pr.id WHERE cp.campaign_id = ? AND pr.id != ?`)
+          .all(campaign.id, p.product_id || 0)
+      : [];
+    return {
+      client: client && { name: client.name, brief: J(client.brief_json, {}) },
+      campaign: campaign && { name: campaign.name, brief: J(campaign.brief_json, {}) },
+      product: product && { name: product.name, brief: J(product.brief_json, {}) },
+      otherProducts: otherProducts.map((x) => ({ name: x.name })),
+      names: { client: client?.name, campaign: campaign?.name, product: product?.name },
+    };
+  }
+  const hierarchyOf = (p) => P.hierarchyBlock(loadHierarchy(p));
 
   function update(id, fields) {
     const keys = Object.keys(fields);
@@ -50,9 +89,12 @@ module.exports = (db) => {
     const elements = db.prepare("SELECT * FROM elements WHERE project_id = ? ORDER BY z, id").all(p.id)
       .map((e) => ({ ...e, layout: J(e.layout_json, {}), layout_json: undefined }));
     const assets = db.prepare("SELECT id, element_id, kind, mime, feedback, created_at FROM assets WHERE project_id = ? ORDER BY id DESC").all(p.id);
+    const hierarchy = loadHierarchy(p);
     return {
       id: p.id, orgId: p.org_id, name: p.name, step: p.step,
-      brief: J(p.brief_json, {}), mandatory: J(p.mandatory_json, {}),
+      clientId: p.client_id, campaignId: p.campaign_id, productId: p.product_id, hierarchy: hierarchy.names,
+      flow: J(p.flow_json, {}), directions: J(p.directions_json, {}),
+      brief: J(p.brief_json, {}), mandatory: J(p.mandatory_json, {}), adStyle: adStyleOf(p),
       analysis: J(p.analysis_json), concepts: J(p.concepts_json), chosenConcept: p.chosen_concept,
       plan: J(p.plan_json), critique: J(p.critique_json), compose: J(p.compose_json),
       plateAssetId: p.plate_asset_id, aspect: aspectOf(p), size: P.ASPECTS[aspectOf(p)],
@@ -99,12 +141,38 @@ module.exports = (db) => {
 
   r.post("/orgs/:orgId/projects", wrap(async (req, res) => {
     requireOrgRole(db, req.user.id, +req.params.orgId);
-    const name = String(req.body.name || "").trim() || "מודעה חדשה";
-    const info = db.prepare("INSERT INTO projects (org_id, created_by, name, brief_json) VALUES (?,?,?,?)")
-      .run(+req.params.orgId, req.user.id, name.slice(0, 120), JSON.stringify({ format: "4:5" }));
+    const campaign = defaultCampaign(+req.params.orgId, req.user.id);
     res.status(201);
-    send(res, info.lastInsertRowid);
+    createAd(res, { orgId: +req.params.orgId, campaign, name: req.body.name, productId: req.body.productId, flow: req.body.flow, userId: req.user.id });
   }));
+
+  // New, explicit entry point: create an ad under a specific campaign (optionally focused on one of its products),
+  // with an optional quick-create flow selection ({mode:"quick", include:{...}, adStyle:"photo"|"graphic"|"hybrid"}).
+  r.post("/campaigns/:campaignId/projects", wrap(async (req, res) => {
+    const campaign = db.prepare(`SELECT ca.*, cl.org_id AS org_id FROM campaigns ca JOIN clients cl ON cl.id = ca.client_id
+                                 JOIN memberships m ON m.org_id = cl.org_id AND m.user_id = ? WHERE ca.id = ?`).get(req.user.id, +req.params.campaignId);
+    if (!campaign) throw notFound("הקמפיין לא נמצא");
+    res.status(201);
+    createAd(res, { orgId: campaign.org_id, campaign, name: req.body.name, productId: req.body.productId, flow: req.body.flow, userId: req.user.id });
+  }));
+
+  function createAd(res, { orgId, campaign, name, productId, flow, userId }) {
+    const adName = String(name || "").trim() || "מודעה חדשה";
+    let pid = null;
+    if (productId) {
+      const belongs = db.prepare("SELECT 1 FROM campaign_products WHERE campaign_id = ? AND product_id = ?").get(campaign.id, +productId)
+        || db.prepare("SELECT 1 FROM products pr WHERE pr.id = ? AND pr.client_id = ?").get(+productId, campaign.client_id);
+      if (belongs) pid = +productId;
+    }
+    const flowJson = flow && typeof flow === "object" ? {
+      mode: flow.mode === "quick" ? "quick" : "full",
+      include: flow.include && typeof flow.include === "object" ? flow.include : undefined,
+    } : {};
+    const briefJson = { format: "4:5", adStyle: AD_STYLES.includes(flow?.adStyle) ? flow.adStyle : "photo" };
+    const info = db.prepare("INSERT INTO projects (org_id, created_by, name, client_id, campaign_id, product_id, brief_json, flow_json) VALUES (?,?,?,?,?,?,?,?)")
+      .run(orgId, userId, adName.slice(0, 120), campaign.client_id, campaign.id, pid, JSON.stringify(briefJson), JSON.stringify(flowJson));
+    send(res, info.lastInsertRowid);
+  }
 
   r.get("/projects/:id", wrap(async (req, res) => res.json(full(project(req)))));
 
@@ -115,11 +183,21 @@ module.exports = (db) => {
     if (req.body.brief !== undefined) {
       const b = {}; for (const k of [...Object.keys(P.BRIEF_FIELDS), "format"]) b[k] = String(req.body.brief[k] ?? "").slice(0, 2000);
       if (!P.ASPECTS[b.format]) b.format = "4:5";
+      b.adStyle = AD_STYLES.includes(req.body.brief.adStyle) ? req.body.brief.adStyle : (AD_STYLES.includes(J(p.brief_json, {}).adStyle) ? J(p.brief_json, {}).adStyle : "photo");
       f.brief_json = JSON.stringify(b);
     }
     if (req.body.mandatory !== undefined) {
       const m = {}; for (const k of Object.keys(P.MANDATORY_FIELDS)) m[k] = String(req.body.mandatory[k] ?? "").slice(0, 500);
+      // Dynamic extra text lines (price lists, bullet checklists, …) — verbatim, like every other mandatory field.
+      m.lines = (Array.isArray(req.body.mandatory.lines) ? req.body.mandatory.lines : []).slice(0, 24).map((l) => ({
+        text: String(l?.text ?? "").slice(0, 300),
+        role: LINE_ROLE_KEYS.includes(l?.role) ? l.role : "bullet",
+      })).filter((l) => l.text);
       f.mandatory_json = JSON.stringify(m);
+    }
+    if (req.body.flow !== undefined && req.body.flow && typeof req.body.flow === "object") {
+      f.flow_json = JSON.stringify({ mode: req.body.flow.mode === "quick" ? "quick" : "full",
+        include: req.body.flow.include && typeof req.body.flow.include === "object" ? req.body.flow.include : undefined });
     }
     if (req.body.step !== undefined) f.step = Math.min(8, Math.max(1, +req.body.step || 1));
     if (Object.keys(f).length) update(p.id, f);
@@ -134,13 +212,25 @@ module.exports = (db) => {
     res.json({ ok: true });
   }));
 
+  /** Merges a free-text steering note for one stage into directions_json — kept so the AI (and the user) can see
+   * the whole "conversation" that shaped this ad across every stage, not just the latest note. */
+  function saveDirection(p, stage, direction) {
+    const d = String(direction || "").trim().slice(0, 1000);
+    if (!d) return;
+    const all = J(p.directions_json, {});
+    all[stage] = d;
+    update(p.id, { directions_json: JSON.stringify(all) });
+  }
+
   // ---------- Step 1: analysis ----------
   r.post("/projects/:id/analyze", wrap(async (req, res) => {
     const p = project(req);
     const brief = J(p.brief_json, {});
     requireFilled(brief, ["businessName", "offering", "goal"], "פרטי העסק");
     const apiKey = userKey(req);
-    const analysis = await metered(db, req, res, p.org_id, "text", () => P.analyze({ apiKey, brief }));
+    const direction = req.body.direction;
+    const analysis = await metered(db, req, res, p.org_id, "text", () => P.analyze({ apiKey, brief, hierarchy: hierarchyOf(p), direction }));
+    saveDirection(p, "analyze", direction);
     update(p.id, { analysis_json: JSON.stringify(analysis), step: Math.max(p.step, 1) });
     send(res, p.id);
   }));
@@ -150,8 +240,10 @@ module.exports = (db) => {
     const p = project(req);
     if (!p.analysis_json) throw bad("יש להשלים את ניתוח העסק קודם");
     const apiKey = userKey(req);
+    const direction = req.body.direction;
     const suggestion = await metered(db, req, res, p.org_id, "text", () =>
-      P.suggestMandatory({ apiKey, brief: J(p.brief_json, {}), analysis: J(p.analysis_json) }));
+      P.suggestMandatory({ apiKey, brief: J(p.brief_json, {}), analysis: J(p.analysis_json), hierarchy: hierarchyOf(p), direction }));
+    saveDirection(p, "suggestMandatory", direction);
     res.json(suggestion);
   }));
 
@@ -162,8 +254,11 @@ module.exports = (db) => {
     const mandatory = J(p.mandatory_json, {});
     requireFilled(mandatory, ["centerProduct", "businessName"], "פרטי החובה");
     const apiKey = userKey(req);
+    const direction = req.body.direction;
     const list = await metered(db, req, res, p.org_id, "text", () =>
-      P.concepts({ apiKey, brief: J(p.brief_json, {}), mandatory, analysis: J(p.analysis_json) }));
+      P.concepts({ apiKey, brief: J(p.brief_json, {}), mandatory, analysis: J(p.analysis_json), hierarchy: hierarchyOf(p), direction,
+        previousConcepts: direction ? J(p.concepts_json, []) : undefined }));
+    saveDirection(p, "concepts", direction);
     update(p.id, { concepts_json: JSON.stringify(list), chosen_concept: null, step: Math.max(p.step, 3) });
     send(res, p.id);
   }));
@@ -175,15 +270,18 @@ module.exports = (db) => {
     const idx = +req.body.index;
     if (!Number.isInteger(idx) || !list[idx]) throw bad("יש לבחור קונספט מהרשימה");
     const apiKey = userKey(req);
+    const direction = req.body.direction;
     const plan = await metered(db, req, res, p.org_id, "text", () => P.plan({ apiKey, brief: J(p.brief_json, {}),
-      mandatory: J(p.mandatory_json, {}), analysis: J(p.analysis_json), concept: list[idx], aspect: aspectOf(p) }));
+      mandatory: J(p.mandatory_json, {}), analysis: J(p.analysis_json), concept: list[idx], concepts: list, aspect: aspectOf(p),
+      hierarchy: hierarchyOf(p), direction }));
+    saveDirection(p, "plan", direction);
     update(p.id, { chosen_concept: idx, plan_json: JSON.stringify(plan), critique_json: null, compose_json: null, step: Math.max(p.step, 4) });
     send(res, p.id);
   }));
 
   r.put("/projects/:id/plan", wrap(async (req, res) => {
     const p = project(req);
-    const plan = P.normalizePlan(req.body.plan, J(p.mandatory_json, {}));
+    const plan = P.normalizePlan(req.body.plan, J(p.mandatory_json, {}), adStyleOf(p));
     update(p.id, { plan_json: JSON.stringify(plan) });
     send(res, p.id);
   }));
@@ -193,8 +291,10 @@ module.exports = (db) => {
     const p = project(req);
     if (!p.plan_json) throw bad("יש לבחור קונספט ולבנות קומפוזיציה קודם");
     const apiKey = userKey(req);
+    const direction = req.body.direction;
     const c = await metered(db, req, res, p.org_id, "text", () =>
-      P.critique({ apiKey, brief: J(p.brief_json, {}), mandatory: J(p.mandatory_json, {}), plan: J(p.plan_json) }));
+      P.critique({ apiKey, brief: J(p.brief_json, {}), mandatory: J(p.mandatory_json, {}), plan: J(p.plan_json), hierarchy: hierarchyOf(p), direction }));
+    saveDirection(p, "critique", direction);
     update(p.id, { critique_json: JSON.stringify(c), step: Math.max(p.step, 5) });
     send(res, p.id);
   }));

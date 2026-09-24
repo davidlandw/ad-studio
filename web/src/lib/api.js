@@ -22,4 +22,4 @@ export const api = {
   del: (u) => request("DELETE", u),
 };
 
-export const assetUrl = (id) => `/api/assets/${id}/file`;
+export const assetUrl = (id) => (id ? `/api/assets/${id}/file` : null);

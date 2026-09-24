@@ -92,10 +92,40 @@ export function textBlockHeight(ctx, t) {
   return wrapLines(ctx, t.text, t.w).length * t.size * (t.lineHeight || 1.15);
 }
 
-/** Final ad: plate + text layers + logo. */
-export async function renderAd(ctx, W, H, { plateSrc, texts = [], logo }) {
+function roundRectPath(ctx, x, y, w, h, r) {
+  const rad = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rad, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rad); ctx.arcTo(x + w, y + h, x, y + h, rad);
+  ctx.arcTo(x, y + h, x, y, rad); ctx.arcTo(x, y, x + w, y, rad);
+  ctx.closePath();
+}
+
+/** Flat-color graphic shapes (background fills, color cards, ribbons, badges) — drawn directly, never through the
+ * image model, so they stay pixel-exact like text (D6/D36). Used for graphic/typographic ads and as accents on photo ads. */
+export function drawPanels(ctx, W, H, panels = []) {
+  for (const p of [...panels].filter((p) => p.hidden !== true).sort((a, b) => a.z - b.z)) {
+    const l = p.layout || p;
+    const x = l.x * W, y = l.y * H, w = l.w * W, h = l.h * H;
+    ctx.save();
+    ctx.fillStyle = p.color || "#000000";
+    if (p.shape === "ellipse") { ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill(); }
+    else { roundRectPath(ctx, x, y, w, h, (p.radius || 0) * Math.min(w, h)); ctx.fill(); }
+    if (p.label) {
+      ctx.fillStyle = p.labelColor || "#ffffff";
+      ctx.font = `700 ${Math.round(h * 0.28)}px sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.direction = "rtl";
+      ctx.fillText(p.label, x + w / 2, y + h / 2, w * 0.9);
+    }
+    ctx.restore();
+  }
+}
+
+/** Final ad: plate (optional — a pure graphic ad may have none) + color panels + text layers + logo. */
+export async function renderAd(ctx, W, H, { plateSrc, panels = [], texts = [], logo }) {
   ctx.clearRect(0, 0, W, H);
   if (plateSrc) drawCover(ctx, await loadImage(plateSrc), W, H);
+  drawPanels(ctx, W, H, panels);
   await ensureFonts(texts);
   ctx.direction = "rtl";
   ctx.textBaseline = "top";

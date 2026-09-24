@@ -9,10 +9,12 @@ const FIELDS = [
   ["goal", "מטרת הפרסומת", false, "להביא לקוחות, לפרסם מוצר, מבצע, מיתוג..."],
 ];
 const brief = ref({ format: "4:5", ...project.value.brief });
+const direction = ref("");
 const save = () => run("שומר", () => api.patch(`/projects/${project.value.id}`, { brief: brief.value }), "נשמר");
 async function analyze() {
   await run("שומר", () => api.patch(`/projects/${project.value.id}`, { brief: brief.value }));
-  await run("מנתח את העסק ואת מטרת הפרסומת", () => api.post(`/projects/${project.value.id}/analyze`));
+  await run("מנתח את העסק ואת מטרת הפרסומת", () => api.post(`/projects/${project.value.id}/analyze`, { direction: direction.value }));
+  direction.value = "";
 }
 const A = [["summary", "תמצית"], ["positioning", "מיצוב"], ["audience_insight", "תובנת קהל"], ["tone_direction", "כיוון טון"], ["goal_strategy", "אסטרטגיה למטרה"]];
 </script>
@@ -35,6 +37,8 @@ const A = [["summary", "תמצית"], ["positioning", "מיצוב"], ["audience_
         <small class="muted">שינוי פורמט אחרי יצירת הרקע ידרוש ליצור אותו מחדש.</small>
       </label>
     </div>
+    <label v-if="project.analysis" class="field"><span>כיוון נוסף לניתוח מחדש <small>(לא חובה — למשל: "תתמקד יותר בקהל הצעיר")</small></span>
+      <input v-model="direction" data-test="direction-analyze" /></label>
     <div class="row">
       <button class="primary" :disabled="!!busy" @click="analyze" data-test="analyze">{{ project.analysis ? "ניתוח מחדש" : "ניתוח העסק" }}</button>
       <button class="ghost" :disabled="!!busy" @click="save">שמירה בלבד</button>

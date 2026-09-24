@@ -9,6 +9,10 @@ const router = createRouter({
   routes: [
     { path: "/login", component: () => import("./views/Login.vue"), meta: { public: true } },
     { path: "/", component: () => import("./views/Projects.vue") },
+    { path: "/clients", component: () => import("./views/Clients.vue") },
+    { path: "/clients/:id", component: () => import("./views/Client.vue"), props: (r) => ({ id: Number(r.params.id) }) },
+    { path: "/products/:id", component: () => import("./views/Product.vue"), props: (r) => ({ id: Number(r.params.id) }) },
+    { path: "/campaigns/:id", component: () => import("./views/Campaign.vue"), props: (r) => ({ id: Number(r.params.id) }) },
     { path: "/org", component: () => import("./views/Org.vue") },
     { path: "/settings", component: () => import("./views/Settings.vue") },
     { path: "/library", component: () => import("./views/Library.vue") },

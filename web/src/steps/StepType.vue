@@ -13,7 +13,9 @@ const texts = ref([]);
 const logo = ref(null);
 const fonts = ref([]);
 const selected = ref(null);
-const ROLE = { slogan: "סלוגן", businessName: "שם העסק", offer: "מבצע / מחיר", extra: "פרטים נוספים", phone: "טלפון", addressOrSite: "כתובת / אתר" };
+const ROLE = { slogan: "סלוגן", businessName: "שם העסק", offer: "מבצע / מחיר", extra: "פרטים נוספים", phone: "טלפון", addressOrSite: "כתובת / אתר",
+  headline: "כותרת", subheadline: "כותרת משנה", bullet: "בולט", price: "מחיר", contact: "יצירת קשר", disclaimer: "הערה" };
+const roleLabel = (t) => ROLE[t.role] || t.role;
 
 const measure = document.createElement("canvas").getContext("2d");
 const boxes = computed(() => {
@@ -50,7 +52,7 @@ async function draw() {
   const id = ++renderId;
   const off = document.createElement("canvas"); off.width = W; off.height = H;
   await renderAd(off.getContext("2d"), W, H, {
-    plateSrc: assetUrl(project.value.plateAssetId), texts: texts.value,
+    plateSrc: assetUrl(project.value.plateAssetId), panels: project.value.plan?.panels || [], texts: texts.value,
     logo: logo.value ? { ...logo.value, src: assetUrl(logo.value.assetId) } : null,
   });
   if (id !== renderId) return;
@@ -108,14 +110,14 @@ async function exportPng() {
       <div class="side">
         <ul class="texts">
           <li v-for="t in texts" :key="t.id" :class="{ sel: t.id === selected }" @click="selected = t.id">
-            <label><input type="checkbox" :checked="!t.hidden" @change="t.hidden = !$event.target.checked" @click.stop /> {{ ROLE[t.role] }}</label>
+            <label><input type="checkbox" :checked="!t.hidden" @change="t.hidden = !$event.target.checked" @click.stop /> {{ roleLabel(t) }}</label>
             <span class="muted clip">{{ t.text }}</span>
           </li>
         </ul>
         <button class="link" @click="syncTextsFromMandatory(true)">רענון טקסטים משדות החובה</button>
 
         <div v-if="sel" class="props" data-test="text-props">
-          <h3>{{ ROLE[sel.role] }}</h3>
+          <h3>{{ roleLabel(sel) }}</h3>
           <label class="field"><span>פונט</span>
             <select v-model="sel.fontId" @change="onFontChange(sel)" data-test="font-select">
               <option :value="null">ברירת מחדל</option>

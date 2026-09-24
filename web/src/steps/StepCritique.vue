@@ -1,16 +1,17 @@
 <script setup>
-import { inject } from "vue";
+import { inject, ref } from "vue";
 import { api } from "../lib/api";
 import PlanEditor from "./PlanEditor.vue";
 
 const { project, run, go, busy } = inject("ctx");
 const CHECKS = [["generic_risk", "סיכון לגנרי או \"AI\""], ["message_clarity", "בהירות המסר"], ["product_centered", "המוצר במרכז?"], ["clutter", "עומס"], ["eye_flow", "משיכת העין"]];
-const again = () => run("המבקר בודק שוב", () => api.post(`/projects/${project.value.id}/critique`));
+const direction = ref("");
+const again = async () => { await run("המבקר בודק שוב", () => api.post(`/projects/${project.value.id}/critique`, { direction: direction.value })); direction.value = ""; };
 async function lock(useRevised) {
   if (project.value.elements.some((e) => e.status !== "pending") &&
       !confirm("אלמנטים שהפרומפט שלהם השתנה יאבדו את האישור. להמשיך?")) return;
-  await run("נועל את התוכנית ויוצר רשימת אלמנטים", () => api.post(`/projects/${project.value.id}/lock-plan`, { useRevised }));
-  go(6);
+  const p = await run("נועל את התוכנית ויוצר רשימת אלמנטים", () => api.post(`/projects/${project.value.id}/lock-plan`, { useRevised }));
+  go(p.elements.length ? 6 : 8); // a pure graphic ad (panels + text, no photographed elements) skips straight to export
 }
 </script>
 
@@ -20,6 +21,8 @@ async function lock(useRevised) {
       <h2>ביקורת המשרד</h2>
       <button class="ghost" :disabled="!!busy" @click="again">{{ project.critique ? "ביקורת נוספת" : "הרצת ביקורת" }}</button>
     </div>
+    <label class="field"><span>כיוון נוסף לביקורת <small>(לא חובה — למשל: "תתמקד בלוגו ובקריאוּת הטלפון")</small></span>
+      <input v-model="direction" data-test="direction-critique" /></label>
     <template v-if="project.critique">
       <dl class="checks"><template v-for="[k, l] in CHECKS" :key="k"><dt>{{ l }}</dt><dd>{{ project.critique.checks[k] }}</dd></template></dl>
       <div class="grid2">

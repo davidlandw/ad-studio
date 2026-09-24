@@ -28,7 +28,8 @@ function switchOrg(e) {
       </select>
     </label>
     <nav>
-      <router-link to="/">מודעות</router-link>
+      <router-link to="/clients">לקוחות</router-link>
+      <router-link to="/">כל המודעות</router-link>
       <router-link to="/library">ספרייה</router-link>
       <router-link to="/org">{{ currentOrg()?.role === "member" ? "הארגון" : "ניהול ארגון" }}</router-link>
       <router-link to="/settings">הגדרות{{ store.me.gemini.hasKey ? "" : " ●" }}</router-link>

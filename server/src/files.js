@@ -9,6 +9,10 @@ const IMAGE_SIGS = [
   { mime: "image/jpeg", ext: "jpg", test: (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
   { mime: "image/webp", ext: "webp", test: (b) => b.length > 12 && b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP" },
 ];
+const DOC_SIGS = [
+  ...IMAGE_SIGS,
+  { mime: "application/pdf", ext: "pdf", test: (b) => b.length > 4 && b.toString("ascii", 0, 4) === "%PDF" },
+];
 const FONT_SIGS = [
   { format: "truetype", ext: "ttf", test: (b) => b.readUInt32BE(0) === 0x00010000 || b.toString("ascii", 0, 4) === "true" },
   { format: "opentype", ext: "otf", test: (b) => b.toString("ascii", 0, 4) === "OTTO" },
@@ -27,6 +31,12 @@ function sniffFont(buf) {
   if (!s) throw bad("קובץ הפונט חייב להיות TTF, OTF, WOFF או WOFF2");
   return s;
 }
+// Documents (briefs, logos, product photos, reference ads): image or PDF only — never SVG (vector XSS) or arbitrary types.
+function sniffDocument(buf) {
+  const s = DOC_SIGS.find((x) => x.test(buf));
+  if (!s) throw bad("קובץ המסמך חייב להיות PNG, JPEG, WEBP או PDF");
+  return s;
+}
 
 function save(subdir, buf, ext) {
   const dir = path.join(config.filesDir, subdir);
@@ -43,4 +53,4 @@ const abs = (rel) => {
 const read = (rel) => fs.readFileSync(abs(rel));
 const remove = (rel) => { try { fs.unlinkSync(abs(rel)); } catch { /* already gone */ } };
 
-module.exports = { sniffImage, sniffFont, save, abs, read, remove };
+module.exports = { sniffImage, sniffFont, sniffDocument, save, abs, read, remove };
